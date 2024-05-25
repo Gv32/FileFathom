@@ -108,6 +108,7 @@ else
 fi
 
 echo "File to analyze: $file" >> "$outp"
+echo >> "$outp"
 
 # Eseguire le funzioni in base alle flag impostate
 if [ "$extract_strings_flag" = true ]; then
@@ -141,6 +142,7 @@ if [ "$try_identify_flag" = true ]; then
             mn4=true
             ;;
     esac
+    echo > "$outp"
 
     if [ "$mn4" = false ]; then
         case "${magic_number_8:0:8}" in
@@ -245,6 +247,7 @@ if [ "$try_identify_flag" = true ]; then
                 echo "Unknown file type." >> "$outp"
                 ;;
         esac
+        echo > "$outp"
     fi
     try_identify_flag=false
 fi
