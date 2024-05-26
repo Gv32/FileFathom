@@ -18,7 +18,7 @@ EOF
 show_banner
 
 usage() {
-    echo "Usage: $0 -f <file> [-o <output_file>] [-s] [-x] [-a] [-l <num_bytes>] [-h] [-t]"
+    echo "Usage: $0 -f <file> [-o <output_file>] [-s] [-x] [-a] [-l <num_bytes>] [-h] [-t] [-c]"
     echo "  -f <file>           Specify the file to analyze"
     echo "  -o <output_file>    Specify the output file"
     echo "  -s                  Extract strings from the file"
@@ -27,7 +27,37 @@ usage() {
     echo "  -l <num_bytes>      Number of bytes to display in hex dump (default: 256)"
     echo "  -h                  Show this help message"
     echo "  -t                  Try to identify the type of file"
+    echo "  -c                  Calculate Hashes"
     exit 1
+}
+
+check_for_windows_apis() {
+    echo "Checking for Windows API usage..." >> "$outp"
+    # Lista delle API Windows comuni nei malware
+    windows_apis=(
+        "CreateFileA" "CreateFileW" "ReadFile" "WriteFile" "OpenProcess" 
+        "VirtualAlloc" "VirtualFree" "VirtualProtect" "LoadLibraryA" "LoadLibraryW" 
+        "GetProcAddress" "GetModuleHandleA" "GetModuleHandleW" "CreateProcessA" 
+        "CreateProcessW" "ShellExecuteA" "ShellExecuteW" "WinExec" "ExitProcess" 
+        "TerminateProcess" "CreateThread" "ExitThread" "GetThreadContext" 
+        "SetThreadContext" "SuspendThread" "ResumeThread" "CreateRemoteThread" 
+        "ReadProcessMemory" "WriteProcessMemory" "VirtualAllocEx" "VirtualFreeEx" 
+        "VirtualProtectEx" "GetAsyncKeyState" "SetWindowsHookEx" "UnhookWindowsHookEx" 
+        "SetWindowsHookExA" "SetWindowsHookExW" "FindWindowA" "FindWindowW" 
+        "FindWindowExA" "FindWindowExW" "ShowWindow" "CreateWindowExA" "CreateWindowExW" 
+        "SetWindowTextA" "SetWindowTextW" "CreateToolhelp32Snapshot" "Process32First" "Process32Next" "EnumProcesses"
+        "OpenProcess" "GetProcessImageFileName" "NtQuerySystemInformation"
+        "ZwQuerySystemInformation" "GetModuleBaseName" "GetProcessMemoryInfo"
+        "EnumProcessModules" "QueryFullProcessImageName"
+    )
+    # Estrarre tutte le stringhe dal file e cercare le API di Windows
+    strings_output=$(strings "$file")
+    for api in "${windows_apis[@]}"; do
+        if echo "$strings_output" | grep -q "$api"; then
+            echo "Possible malicious Windows API: $api" >> "$outp"
+        fi
+    done
+    echo >> "$outp"
 }
 
 # Valore predefinito per il numero di byte da visualizzare nel dump esadecimale
@@ -40,9 +70,10 @@ hex_dump_flag=false
 output_flag=false
 try_identify_flag=false
 mn4=false
+calculate_hashes_flag=false
 
 # Parsing delle opzioni della linea di comando
-while getopts ":f:o:sxtal:h" opt; do
+while getopts ":f:o:sxtacl:h" opt; do
     case ${opt} in
         f )
             file=$OPTARG
@@ -63,6 +94,9 @@ while getopts ":f:o:sxtal:h" opt; do
         a )
             analyze_sections_flag=true
             ;;
+        c )
+            calculate_hashes_flag=true
+            ;;
         l )
             hex_dump_length=$OPTARG
             ;;
@@ -80,7 +114,7 @@ while getopts ":f:o:sxtal:h" opt; do
     esac
 done
 
-if [ "$extract_strings_flag" = false ] && [ "$analyze_sections_flag" = false ] && [ "$hex_dump_flag" = false ] && [ "$try_identify_flag" = false ]; then
+if [ "$extract_strings_flag" = false ] && [ "$analyze_sections_flag" = false ] && [ "$hex_dump_flag" = false ] && [ "$try_identify_flag" = false ] && [ "$calculate_hashes_flag" = false ]; then
     usage
     exit 1
 fi
@@ -115,7 +149,22 @@ if [ "$extract_strings_flag" = true ]; then
     echo "Extracting strings from $file..." >> "$outp"
     strings "$file" >> "$outp"
     echo >> "$outp"
+    check_for_windows_apis
     extract_strings_flag=false
+fi
+
+if [ "$calculate_hashes_flag" = true ]; then
+    echo "Calculating hashes for $file..." >> "$outp"
+    echo >> "$outp"
+    echo "md5:" >> "$outp"
+    md5sum "$file" >> "$outp"
+    echo >> "$outp"
+    echo "sha1:" >> "$outp"
+    sha1sum "$file" >> "$outp"
+    echo >> "$outp"
+    echo "sha256:" >> "$outp"
+    sha256sum "$file" >> "$outp"
+    echo >> "$outp"
 fi
 
 if [ "$analyze_sections_flag" = true ]; then
@@ -142,7 +191,7 @@ if [ "$try_identify_flag" = true ]; then
             mn4=true
             ;;
     esac
-    echo > "$outp"
+    echo >> "$outp"
 
     if [ "$mn4" = false ]; then
         case "${magic_number_8:0:8}" in
@@ -247,7 +296,7 @@ if [ "$try_identify_flag" = true ]; then
                 echo "Unknown file type." >> "$outp"
                 ;;
         esac
-        echo > "$outp"
+        echo >> "$outp"
     fi
     try_identify_flag=false
 fi
