@@ -60,6 +60,12 @@ check_for_windows_apis() {
     echo >> "$outp"
 }
 
+check_dll_import(){
+    echo "Checking for dll import..." >> "$outp"
+    strings "$file" | grep dll >> "$outp"
+    echo >> "$outp"
+}
+
 # Valore predefinito per il numero di byte da visualizzare nel dump esadecimale
 hex_dump_length=256
 
@@ -150,6 +156,7 @@ if [ "$extract_strings_flag" = true ]; then
     strings "$file" >> "$outp"
     echo >> "$outp"
     check_for_windows_apis
+    check_dll_import
     extract_strings_flag=false
 fi
 
