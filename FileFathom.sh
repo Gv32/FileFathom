@@ -176,7 +176,7 @@ fi
 
 if [ "$analyze_sections_flag" = true ]; then
     echo "Analyzing sections of $file..." >> "$outp"
-    objdump -h "$file" >> "$outp"
+    objdump -x "$file" >> "$outp"
     echo >> "$outp"
     analyze_sections_flag=false
 fi
